@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang = "en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vitals Time Series Visualization</title>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        .axis-label {
+            font-size: 12px;
+        }
+        .line {
+            fill: none;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vitals Time Series</h1>
+
+    <div id="controls">
+        <label for="selectButton">Select Vital Sign: </label>
+        <select id="selectButton"></select>
+    </div>
+
+    <div id="my_dataviz"></div>
+
+
+<script>
+
+// set the dimensions and margins of the graph
+const margin = {top: 20, right: 30, bottom: 50, left: 60},
+    width = 600 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+const svg = d3.select("#my_dataviz")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+d3.csv("https://raw.githubusercontent.com/annayao0602/vitals-d3-research/main/Patient%20vitals%20across%20time%20mock%20data.csv",
+
+function(d){
+
+    const bp = d["Blood Pressure (mmHg)"].split('/');
+
+    return {
+        Time: d3.timeParse("%Y-%m-%d %H:%M:%S")(d.Time),
+        "Heart Rate (bpm)": +d["Heart Rate (bpm)"],
+        "Respiratory Rate (breaths/min)": +d["Respiratory Rate (breaths/min)"],
+        "Temperature (°F)": +d["Temperature (°F)"],
+        "Systolic": +bp[0], // New property for systolic BP
+        "Diastolic": +bp[1]  // New property for diastolic BP
+    };
+}) .then(function(data) {
+
+    const allGroup = ["Heart Rate (bpm)", "Respiratory Rate (breaths/min)", "Temperature (°F)", "Blood Pressure (mmHg)"];
+    
+    const myColor = d3.scaleOrdinal()
+      .domain(allGroup)
+      .range(d3.schemeSet2);
+
+    d3.select("#selectButton")
+      .selectAll('myOptions')
+      .data(allGroup)
+      .enter()
+      .append('option')
+      .text(d => d)
+      .attr("value", d => d);
+
+    
+    const x = d3.scaleTime()
+        .domain(d3.extent(data, function(d) { return d.Time; }))
+        .range([ 0, width ]);
+    const xAxis = svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x));
+
+    // Add Y axis
+    const y = d3.scaleLinear()
+        .range([ height, 0 ]); //set domain in update function
+
+    // add group for y axis, give it class
+    var yAxis = svg.append("g")
+        .attr("class", "y-axis");
+
+    //path for line to be updated in update function
+    const lineGroup = svg.append('g');
+      
+    function update(selectedGroup) {
+        if (selectedGroup === "Blood Pressure (mmHg)") {
+            const bpData = {
+                systolic: data.map(d => ({ Time:d.Time, value: d.Systolic})),
+                diastolic: data.map(d => ({ Time: d.Time, value: d.Diastolic }))
+            };
+            const min = d3.min(data, d => d.Diastolic);
+            const max = d3.max(data, d => d.Systolic);
+            y.domain([min - 5, max +5]);
+            yAxis.transition().duration(1000).call(d3.axisLeft(y));
+
+            lineGroup.selectAll("path").remove();
+
+            lineGroup.append("path")
+                .datum(bpData.systolic)
+                .attr("class", "line")
+                .transition().duration(1000)
+                .attr("d", d3.line().x(d => x(d.Time)).y(d => y(d.value)))
+                .attr("stroke", myColor(selectedGroup));
+            lineGroup.append("path")
+                .datum(bpData.diastolic)
+                .attr("class", "line")
+                .transition().duration(1000)
+                .attr("d", d3.line().x(d => x(d.Time)).y(d => y(d.value)))
+                .attr("stroke", "#888888");
+        } else {
+            const dataFilter = data.map(d => {
+                return {
+                    Time: d.Time, 
+                    value:d[selectedGroup]
+                }; 
+            });
+
+        //update y-axis domain dynamically
+        const [min,max] = d3.extent(dataFilter, d => d.value);
+        y.domain([min * 0.95, max * 1.05]);
+        yAxis.transition().duration(1000).call(d3.axisLeft(y))
+
+        // Remove any old lines
+        lineGroup.selectAll("path").remove();
+
+        // Draw the new line
+        lineGroup.append("path")
+            .datum(dataFilter)
+            .attr("class", "line")
+            .transition()
+            .duration(1000)
+            .attr("d", d3.line()
+                .x(d => x(d.Time))
+                .y(d => y(d.value))
+            )
+            .attr("stroke", myColor(selectedGroup));
+        }
+    }
+    d3.select("#selectButton").on("change", function() {
+        const selectedOption = d3.select(this).property("value");
+        update(selectedOption);
+    });
+    update("Heart Rate (bpm)");
+    
+});
+</script>
+</body>
+</html>
