@@ -25,6 +25,9 @@
             fill: none;
             stroke-width: 2px;
         }
+        .legend {
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -52,6 +55,10 @@ const svg = d3.select("#my_dataviz")
   .append("g")
     .attr("transform",
           "translate(" + margin.left + "," + margin.top + ")");
+
+const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${width - 100}, 0)`);
 
 d3.csv("https://raw.githubusercontent.com/annayao0602/vitals-d3-research/main/Patient%20vitals%20across%20time%20mock%20data.csv",
 
@@ -103,6 +110,9 @@ function(d){
     const lineGroup = svg.append('g');
       
     function update(selectedGroup) {
+
+        legend.selectAll("*").remove();
+
         if (selectedGroup === "Blood Pressure (mmHg)") {
             const bpData = {
                 systolic: data.map(d => ({ Time:d.Time, value: d.Systolic})),
@@ -115,18 +125,45 @@ function(d){
 
             lineGroup.selectAll("path").remove();
 
+            const systolicColor = myColor(selectedGroup);
+            const diastolicColor = "#888888";
+
             lineGroup.append("path")
                 .datum(bpData.systolic)
                 .attr("class", "line")
                 .transition().duration(1000)
                 .attr("d", d3.line().x(d => x(d.Time)).y(d => y(d.value)))
-                .attr("stroke", myColor(selectedGroup));
+                .attr("stroke", systolicColor);
             lineGroup.append("path")
                 .datum(bpData.diastolic)
                 .attr("class", "line")
                 .transition().duration(1000)
                 .attr("d", d3.line().x(d => x(d.Time)).y(d => y(d.value)))
-                .attr("stroke", "#888888");
+                .attr("stroke", diastolicColor);
+                
+            const bpLegendData = [
+                {label: "Systolic", color: systolicColor},
+                {label: "Diastolic", color: diastolicColor}
+            ];
+
+            const legendItems = legend.selectAll(".legend-item")
+                .data(bpLegendData)
+                .enter()
+                .append("g")
+                .attr("class", "legend-item")
+                .attr("transform", (d, i) => `translate(0, ${i * 20})`);
+            
+            legendItems.append("rect")
+                .attr("x", 0)
+                .attr("width", 10)
+                .attr("height", 10)
+                .style("fill", d => d.color);
+
+            legendItems.append("text")
+                .attr("x", 15)
+                .attr("y", 9)
+                .text(d => d.label);
+
         } else {
             const dataFilter = data.map(d => {
                 return {
