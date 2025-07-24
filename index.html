@@ -28,6 +28,13 @@
         .legend {
             font-size: 12px;
         }
+        .tooltip {
+            position: absolute;
+            padding: 8px 12px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+        }
     </style>
 </head>
 <body>
@@ -71,8 +78,8 @@ function(d){
         "Heart Rate (bpm)": +d["Heart Rate (bpm)"],
         "Respiratory Rate (breaths/min)": +d["Respiratory Rate (breaths/min)"],
         "Temperature (°F)": +d["Temperature (°F)"],
-        "Systolic": +bp[0], // New property for systolic BP
-        "Diastolic": +bp[1]  // New property for diastolic BP
+        "Systolic": +bp[0], 
+        "Diastolic": +bp[1] 
     };
 }) .then(function(data) {
 
@@ -103,11 +110,13 @@ function(d){
         .range([ height, 0 ]); //set domain in update function
 
     // add group for y axis, give it class
-    var yAxis = svg.append("g")
-        .attr("class", "y-axis");
+    var yAxis = svg.append("g");
 
     //path for line to be updated in update function
     const lineGroup = svg.append('g');
+
+    const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+
       
     function update(selectedGroup) {
 
@@ -140,6 +149,40 @@ function(d){
                 .transition().duration(1000)
                 .attr("d", d3.line().x(d => x(d.Time)).y(d => y(d.value)))
                 .attr("stroke", diastolicColor);
+            
+            svg.selectAll(".hover-circle").remove();
+            svg.selectAll(".systolic-circle").remove();
+            svg.selectAll(".diastolic-circle").remove();
+
+
+            svg.selectAll(".systolic-circle")
+                .data(bpData.systolic)
+                    .join("circle")
+                        .attr("class", "systolic-circle")
+                        .attr("cx", d => x(d.Time))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 4)
+                        .style("fill", systolicColor)
+                    .on("mouseover", function(event, d) {
+                        tooltip.style("opacity", 1)
+                            .html(d.value)
+                            .style("top", (event.pageY - 30 )+"px").style("left",(event.pageX -20)+"px");
+                    })
+                    .on("mouseout", function() {return tooltip.style("opacity", 0);})
+            svg.selectAll(".diastolic-circle")
+                .data(bpData.diastolic)
+                    .join("circle")
+                        .attr("class", "diastolic-circle")
+                        .attr("cx", d => x(d.Time))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 4)
+                        .style("fill", diastolicColor)
+                    .on("mouseover", function(event, d) {
+                        tooltip.style("opacity", 1)
+                            .html(d.value)
+                            .style("top", (event.pageY - 30 )+"px").style("left",(event.pageX -20)+"px");
+                    })
+                    .on("mouseout", function() {return tooltip.style("opacity", 0);});
                 
             const bpLegendData = [
                 {label: "Systolic", color: systolicColor},
@@ -163,6 +206,8 @@ function(d){
                 .attr("x", 15)
                 .attr("y", 9)
                 .text(d => d.label);
+
+            
 
         } else {
             const dataFilter = data.map(d => {
@@ -191,6 +236,29 @@ function(d){
                 .y(d => y(d.value))
             )
             .attr("stroke", myColor(selectedGroup));
+
+        //insert new data join to create invisible circles on each data point
+        //on mouseover, make function to show numeric data at that circle
+        //on mouseout, make visibility of that data invisible
+        svg.selectAll(".hover-circle").remove();
+        svg.selectAll(".systolic-circle").remove();
+        svg.selectAll(".diastolic-circle").remove();
+
+        svg.selectAll(".hover-circle")
+            .data(dataFilter)
+            .join("circle")
+                .attr("class", "hover-circle")
+                .attr("cx", d => x(d.Time))
+                .attr("cy", d => y(d.value))
+                .attr("r", 4)
+                .style("fill", myColor(selectedGroup))
+            .on("mouseover", function(event, d) {
+                tooltip.style("opacity", 1)
+                        .html(d.value)
+                        .style("top", (event.pageY - 30 )+"px").style("left",(event.pageX -20)+"px");
+            })
+            .on("mouseout", function() {return tooltip.style("opacity", 0);})
+            
         }
     }
     d3.select("#selectButton").on("change", function() {
@@ -198,6 +266,7 @@ function(d){
         update(selectedOption);
     });
     update("Heart Rate (bpm)");
+
     
 });
 </script>
